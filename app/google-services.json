@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "754098445808",
+    "project_id": "agentcompanion-86da1",
+    "storage_bucket": "agentcompanion-86da1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:754098445808:android:0cdffe4c0e7b4feeb51135",
+        "android_client_info": {
+          "package_name": "com.antigravity.payment"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDarY5FuCvWZAIHgZZATHaRTqzTBt6z2cg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
