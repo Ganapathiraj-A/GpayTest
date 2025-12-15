@@ -3,20 +3,13 @@ package com.antigravity.gpaytest.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.antigravity.gpaytest.data.PaymentRepository
 import com.antigravity.gpaytest.data.Transaction
-import kotlinx.coroutines.flow.flowOf
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -28,20 +21,32 @@ fun TransactionHistoryScreen(
 
     Scaffold(
         topBar = {
-            Text(
-                text = "Transaction History",
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(16.dp)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Transaction History",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+            }
         }
     ) { paddingValues ->
-        LazyColumn(
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(paddingValues)
-        ) {
-            items(transactions) { transaction ->
-                TransactionItem(transaction)
+        Column(modifier = Modifier.padding(paddingValues)) {
+            Text(
+                text = "Once the transaction is approved you will see registration as approved.",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
+            )
+            
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(transactions) { transaction ->
+                    TransactionItem(transaction)
+                }
             }
         }
     }
@@ -49,6 +54,9 @@ fun TransactionHistoryScreen(
 
 @Composable
 fun TransactionItem(transaction: Transaction) {
+    val statusText = if (transaction.status == "REGISTERED") "Registration Confirmed" else "Registration Pending"
+    val statusColor = if (transaction.status == "REGISTERED") androidx.compose.ui.graphics.Color.Green else androidx.compose.ui.graphics.Color.Red
+
     Card(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier.fillMaxWidth()
@@ -73,10 +81,21 @@ fun TransactionItem(transaction: Transaction) {
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Status: ${transaction.status}",
-                style = MaterialTheme.typography.bodySmall
+                text = statusText,
+                style = MaterialTheme.typography.titleSmall,
+                color = statusColor
             )
+            
+            if (transaction.ocrText.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Receipt Scanned",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
         }
     }
 }

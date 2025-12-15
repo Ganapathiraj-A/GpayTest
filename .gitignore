@@ -23,3 +23,8 @@ output-metadata.json
 *_downloaded.apk
 *_downloaded.zip
 *.hprof
+
+service-account.json
+app/google-services.json
+
+venv/

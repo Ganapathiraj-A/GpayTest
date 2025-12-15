@@ -20,114 +20,111 @@ import com.antigravity.gpaytest.data.Transaction
 import com.antigravity.gpaytest.ui.PaymentScreen
 import com.antigravity.gpaytest.ui.TransactionHistoryScreen
 import com.antigravity.gpaytest.ui.theme.GpayTestTheme
-import com.google.android.gms.wallet.AutoResolveHelper
-import com.google.android.gms.wallet.PaymentData
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+
 import java.util.Date
-import org.json.JSONObject
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var repository: PaymentRepository
-    private val LOAD_PAYMENT_DATA_REQUEST_CODE = 999
+
+    private val sharedImageUri = mutableStateOf<android.net.Uri?>(null)
+    private val isShareFlow = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // DEBUG: Confirm new instance creation
+        Toast.makeText(this, "onCreate: New Instance Created", Toast.LENGTH_SHORT).show()
+        
         enableEdgeToEdge()
 
+        handleIntent(intent)
+
+        // 1. Initialize Auth
+        val auth = FirebaseAuth.getInstance()
+        
+        // 2. Sign in Anonymously (Required for most Storage Rules)
+        auth.signInAnonymously()
+            .addOnSuccessListener { 
+                Log.d("MainActivity", "SignedInAnonymously: ${it.user?.uid}") 
+                Toast.makeText(this, "Auth Success", Toast.LENGTH_SHORT).show()
+            }
+            .addOnFailureListener { e ->
+                Log.e("MainActivity", "SignInAnonymously Failed", e)
+                Toast.makeText(this, "Auth Failed: ${e.message}", Toast.LENGTH_LONG).show()
+            }
+
+        // 3. Initialize Firestore
         val firestore = FirebaseFirestore.getInstance()
+        
+        // 4. Initialize Storage (No longer needed for OCR)
+        // val storage = FirebaseStorage.getInstance()
+        
         repository = PaymentRepository(firestore)
 
         setContent {
             GpayTestTheme {
-                AppNavigation(repository)
-            }
-        }
-    }
-
-    // Deprecated but required for AutoResolveHelper in this simple implementation
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == LOAD_PAYMENT_DATA_REQUEST_CODE) {
-            when (resultCode) {
-                RESULT_OK -> {
-                    data?.let { intent ->
-                        val paymentData = PaymentData.getFromIntent(intent)
-                        handlePaymentSuccess(paymentData)
-                    }
-                }
-                RESULT_CANCELED -> {
-                    Toast.makeText(this, "Payment Canceled", Toast.LENGTH_SHORT).show()
-                }
-                AutoResolveHelper.RESULT_ERROR -> {
-                    val status = AutoResolveHelper.getStatusFromIntent(data)
-                    Toast.makeText(this, "Payment Error: ${status?.statusCode}", Toast.LENGTH_SHORT).show()
-                    Log.w("MainActivity", "Payment failed: ${status?.statusMessage}")
+                AppNavigation(repository, sharedImageUri.value, isShareFlow.value) {
+                    sharedImageUri.value = null // Consume the URI
+                    isShareFlow.value = false // Reset flag
                 }
             }
         }
     }
 
-    private fun handlePaymentSuccess(paymentData: PaymentData?) {
-        if (paymentData != null) {
-            val paymentInfo = paymentData.toJson()
-            // In a real app, you would send this token to your backend.
-            // For this test, we just assume success and record it.
-            // We need to know WHICH item was bought. 
-            // Since onActivityResult is decoupled from the UI state, 
-            // a shared ViewModel or a static holder is usually better.
-            // For simplicity, we'll record a generic "GPay Transaction" here 
-            // OR we can rely on the UI to handle it if we used the ActivityResultLauncher approach properly.
-            // But since I used AutoResolveHelper in the UI which calls this, I'm kind of stuck in the middle.
-            
-            // Correction: My PaymentScreen implementation used AutoResolveHelper.resolveTask(task, activity, 999)
-            // This triggers THIS onActivityResult.
-            // I do NOT have access to the `products` or `selectedProduct` from the Composable state here easily.
-            
-            // To fix this: I'll record the transaction directly here with the info I have.
-            // The JSON might contain the description if I put it in the request.
-            // GPay request structure allows 'transactionInfo'.
-            
-            // Let's just log it and show a Toast.
-            // The REQUIREMENT was: "Once i selet an item and pay - this tranaction should be stored in firestore."
-            
-            // To fulfill the requirement properly, I should use the `registerForActivityResult` in Compose 
-            // properly instead of the legacy `onActivityResult` if I want to keep context.
-            // But `AutoResolveHelper` is persistent. 
-            
-            // Alternative: Use a ViewModel to hold the "Current Pending Transaction Item".
-            // Since I haven't set up a detailed ViewModel architecture, I'll do a quick hack:
-            // I'll parse the price/currency from the paymentData if possible (it's usually just the token), 
-            // OR I will simply record a "Test Item" transaction.
-            
-            // BETTER: I will trust the user understands this is a demo structure. 
-            // I'll record "Purchased Item (GPay)" with a dummy price or 1.0.
-            
-            Toast.makeText(this, "Payment Successful! Recording...", Toast.LENGTH_SHORT).show()
-            repository.recordTransaction(
-                Transaction(
-                    itemName = "GPay Item (Verified)", 
-                    amount = 1.0, 
-                    timestamp = Date()
-                )
-            )
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // DEBUG: Confirm reuse of existing instance
+        Toast.makeText(this, "onNewIntent: Resuming Instance", Toast.LENGTH_SHORT).show()
+        setIntent(intent) // Critical: Update the intent associated with this activity
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        if (intent?.action == Intent.ACTION_SEND && intent.type?.startsWith("image/") == true) {
+            (intent.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM))?.let { uri ->
+                sharedImageUri.value = uri
+                Toast.makeText(this, "Image Received from Share", Toast.LENGTH_SHORT).show()
+                // Flag that this is a share flow for auto-close logic
+                isShareFlow.value = true
+            }
         }
     }
+
+
 }
 
 @Composable
-fun AppNavigation(repository: PaymentRepository) {
+fun AppNavigation(
+    repository: PaymentRepository,
+    sharedImageUri: android.net.Uri?,
+    isShareFlow: Boolean, // Added flag
+    onConsumeSharedUri: () -> Unit
+) {
     val navController = rememberNavController()
     
     NavHost(navController = navController, startDestination = "payment") {
         composable("payment") {
             PaymentScreen(
                 repository = repository,
-                onNavigateToHistory = { navController.navigate("history") }
+                onNavigateToHistory = { navController.navigate("history") },
+                onNavigateToAdmin = { navController.navigate("admin_review") },
+                sharedImageUri = sharedImageUri,
+                isShareFlow = isShareFlow,
+                onConsumeSharedUri = onConsumeSharedUri
             )
         }
         composable("history") {
-            TransactionHistoryScreen(repository = repository)
+            TransactionHistoryScreen(
+                repository = repository
+            )
+        }
+        composable("admin_review") {
+            com.antigravity.gpaytest.ui.AdminReviewScreen(
+                repository = repository,
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
     }
 }

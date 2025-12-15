@@ -41,7 +41,7 @@ android {
 
     applicationVariants.all {
         outputs.map { it as com.android.build.gradle.api.ApkVariantOutput }.forEach { output ->
-            output.outputFileName = "PaymentTest.apk"
+            output.outputFileName = "SBB_Payment.apk"
         }
     }
 }
@@ -59,9 +59,13 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     
     // GPay and Firebase
-    implementation(libs.play.services.wallet)
+
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore)
+    implementation("com.google.firebase:firebase-storage")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("io.coil-kt:coil-compose:2.5.0")
+    implementation(libs.play.services.mlkit.text.recognition)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -81,10 +85,10 @@ tasks.register<Exec>("zipApk") {
 }
 
 tasks.register<Exec>("syncApkToDrive") {
-    dependsOn("zipApk")
+    // dependsOn("zipApk") // User requested APK upload directly
     commandLine("bash", "-c", """
     rclone copy \
-    "${project.layout.buildDirectory.get().asFile}/outputs/apk/debug/PaymentTest.zip" \
+    "${project.layout.buildDirectory.get().asFile}/outputs/apk/debug/SBB_Payment.apk" \
     "gdrive:Code/Build/GpayTest"
     """)
 }
